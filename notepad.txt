@@ -1,0 +1,2 @@
+data = pd.read_csv('/Users/songqi/Desktop/All_csgo_item.csv', dtype={'ordinal':int, 'id':str, 'name':str, 'type':str, 'is_StatTrak':bool, 'rare':str, 'rare':str, 'holo_foil':str, 'year':int})
+
