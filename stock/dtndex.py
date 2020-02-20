@@ -1,7 +1,8 @@
-from steam import *
-from tqdm import tqdm
-import pymongo
 import pandas as pd
+import pymongo
+from tqdm import tqdm
+
+from get_funcs import *
 
 raw_headers = '''Accept: */*
 Accept-Encoding: gzip, deflate, br
@@ -37,71 +38,37 @@ client = pymongo.MongoClient('mongodb://localhost:27017/')
 db_steam = client["steam"]
 col_item_list = db_steam["item_list"]
 
-db_item_data = client['csgo_item_data']
-col_peritem = ['']
 
-
-# def mongo_write(dt: pd.DataFrame, id):
-#     csvpath = r'./item_data/' + parse.unquote(id) + r'.csv'
-#     with pd.read_csv(csvpath) as f:
-#         for i in range(len(f)):
-#             s = f.loc[i]
-#             # 这里加了str（）函数是无奈之举，DataFrame中的专有float64等数字格式使MongoDB无法识别，写入会报错，暂时先全部转换为字符串格式写入吧
-#             dic = {index:str(s[index]) for index in s.index}
-#             x = item_list.insert_one(dic)
-#             print(x)
-
-
-# result = pd.read_csv('/Users/songqi/Desktop/All_csgo_item.csv')
-#
-# for i in range(len(result)):
-#     s = result.loc[i]
-# #这里加了str（）函数是无奈之举，DataFrame中的专有float64等数字格式使MongoDB无法识别，写入会报错，暂时先全部转换为字符串格式写入吧
-#     dic = {index:str(s[index]) for index in s.index}
-#     x = item_list.insert_one(dic)
-#     print(x)
-
-# res = pd.read_csv(str2)
-#
-# for i in range(len(result)):
-#     s = result.loc[i]
-#     # 这里加了str（）函数是无奈之举，DataFrame中的专有float64等数字格式使MongoDB无法识别，写入会报错，暂时先全部转换为字符串格式写入吧
-#     dic = {index: str(s[index]) for index in s.index}
-#     x = item_data.insert_one(dic)
-#     print(x)
-
-log = pd.read_csv('./log.csv')
-ord_list = list(log.ord)
-times = 0
-
-
-for item in tqdm(col_item_list.find()):
-    id = item['id']
-    ord = float(item['ordinal'])
-    # if ord < 11941:
-    #     continue
-    if ord not in ord_list:
-        continue
-    # print(a)
-    x = get_item_data(headers, id)
-    times += 1
-    # x = get_item_list_para(list_url, headers, params_list[i], name_list[i])
-    err = 0
-    # if times == random.randint(11, 20):
-    #     times = 0
-    #     print(r'Sleeping...')
-    #     time.sleep(random.randint(9, 12))
-    if x == 2:
-        print(str(ord) + parse.unquote(id) + r' has no history.')
-        with open('./log3.csv', 'a') as f:
-            f.write(str(ord) + r',' + parse.unquote(id) + r' has no history.' + '\n')
-        continue
-    while x == 1:
-        err += 1
-        print(ord + r' Get ' + parse.unquote(id) + r' return error times ' + str(err) + r'.')
+def get_per_item_data():
+    err_log = pd.read_csv('./err_log.csv')
+    ord_list = list(err_log.ord)
+    times = 0
+    for item in tqdm(col_item_list.find()):
+        id = item['id']
+        ord = float(item['ordinal'])
+        # if ord < 11941:
+        #     continue
+        if ord not in ord_list:
+            continue
+        # print(a)
         x = get_item_data(headers, id)
-        if x == 0:
-            err = 0
-            break
-    print(str(ord) + r' Get ' + parse.unquote(id) + r' has done.')
-
+        times += 1
+        # x = get_item_list_para(list_url, headers, params_list[i], name_list[i])
+        err = 0
+        # if times == random.randint(11, 20):
+        #     times = 0
+        #     print(r'Sleeping...')
+        #     time.sleep(random.randint(9, 12))
+        if x == 2:
+            print(str(ord) + parse.unquote(id) + r' has no history.')
+            with open('./no_his.csv', 'a') as f:
+                f.write(str(ord) + r',' + parse.unquote(id) + r' has no history.' + '\n')
+            continue
+        while x == 1:
+            err += 1
+            print(ord + r' Get ' + parse.unquote(id) + r' return error times ' + str(err) + r'.')
+            x = get_item_data(headers, id)
+            if x == 0:
+                err = 0
+                break
+        print(str(ord) + r' Get ' + parse.unquote(id) + r' has done.')

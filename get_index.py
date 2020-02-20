@@ -1,8 +1,8 @@
-from steam import *
 from copy import deepcopy
-import time
 
-time_start = time.time()
+import pymongo
+
+from get_funcs import *
 
 
 def page_list_builder(url_front, p):
@@ -24,19 +24,19 @@ def name_list_builder(list_name, p, c):
     return names
 
 
-def params_list_builder(params: dict, p, c):
+def params_list_builder(param: dict, p, c):
     paramss = []
     for i in range(p):
-        tmp = params
+        tmp = param
         tmp['start'] = str(i * 10)
         paramss.append(deepcopy(tmp))
-    del paramss[0:c-1]
+    del paramss[0:c - 1]
     return paramss
 
 
+time_start = time.time()
 # 输入数据区域--------------------------------
 # 翻页程序
-#url_front = r'https://steamcommunity.com/market/search?q=&category_730_ItemSet%5B%5D=any&category_730_ProPlayer%5B%5D=any&category_730_StickerCapsule%5B%5D=any&category_730_TournamentTeam%5B%5D=any&category_730_Weapon%5B%5D=any&category_730_StickerCategory%5B%5D=tag_TeamLogo&category_730_Tournament%5B%5D=tag_Tournament13&category_730_Type%5B%5D=tag_CSGO_Tool_Sticker&appid=730#p'
 p = 817
 c = 817
 '817 817 817, 14733 total'
@@ -78,6 +78,10 @@ Sec-Fetch-Site: same-origin
 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36
 X-Prototype-Version: 1.7
 X-Requested-With: XMLHttpRequest'''
+raw_headers3 = '''Accept: */*
+Referer: https://steamcommunity.com/market/listings/730/
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36
+X-Requested-With: XMLHttpRequest'''
 raw_params = '''query=
 start=0
 count=10
@@ -92,9 +96,9 @@ category_730_TournamentTeam%5B%5D=any
 category_730_Weapon%5B%5D=any'''
 # ------------------------------------区域结束
 
-headers = dict([line.split(": ", 1) for line in raw_headers2.split("\n")])
+headers = dict([line.split(": ", 1) for line in raw_headers3.split("\n")])
 params = dict([line.split("=", 1) for line in raw_params.split("\n")])
-#page_list = page_list_builder(url_front, p)
+
 name_list = name_list_builder(list_file_name, p, c)
 params_list = params_list_builder(params, p, c)
 
@@ -102,13 +106,14 @@ params_list = params_list_builder(params, p, c)
 i = 0
 
 if i == 0:
-    get_item_data(headers, '%E2%98%85%20StatTrak%E2%84%A2%20Nomad%20Knife%20%7C%20Boreal%20Forest%20%28Battle-Scarred%29')
+    get_item_data(headers,
+                  '%E2%98%85%20StatTrak%E2%84%A2%20Nomad%20Knife%20%7C%20Boreal%20Forest%20%28Battle-Scarred%29')
 
 elif i == 1:
     get_item_list(list_url, headers, 'Boston_2018_team_logo_p8')
 
 elif i == 2:
-    get_list_data(headers, r'item_list/Cobblestone_p1.csv')
+    get_data_from_list(headers, r'item_list/Cobblestone_p1.csv')
 
 elif i == 3:
     for i in range(p - c + 1):
@@ -126,25 +131,15 @@ elif i == 3:
 elif i == 4:
     csv_merge('./item_list/All_p', './item_list/All_.csv', 1474)
 
-
-
-
-
-
+elif i == 5:
+    client = pymongo.MongoClient('mongodb://localhost:27017/')
+    db_steam = client["steam"]
+    col_item_list = db_steam["item_list"]
+    get_per_item_data()
 
 else:
     raise IOError('没有选择要执行的程序')
 
 time_end = time.time()
-print('总耗时：', time_end-time_start, r's')
+print('总耗时：', time_end - time_start, r's')
 # 区域结束----------------
-
-
-# print(headers)
-# Referer: https://steamcommunity.com/market/listings/730/Sticker%20%7C%20G2%20Esports%20%7C%20Atlanta%202017
-# Boston%202018%20Cobblestone%20Souvenir%20Package
-
-
-# href="https://steamcommunity.com/market/listings/730/DreamHack%202014%20Cobblestone%20Souvenir%20Package?filter=%E5%8F%A4%E5%A0%A1%E6%BF%80%E6%88%98%E7%BA%AA%E5%BF%B5%E5%8C%85"
-
-# https://steamcommunity.com/market/listings/730/*\?filter

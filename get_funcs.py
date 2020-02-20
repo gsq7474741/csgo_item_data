@@ -1,18 +1,18 @@
 import csv
-import re
-import urllib3
-import OpenSSL
-import random
-import ssl
 import http
+import re
+import ssl
 import time
-import pandas as pd
-import tqdm
 from urllib import parse
-from retry import retry
+
+import OpenSSL
+import pandas as pd
 import requests
+import urllib3
+from retry import retry
 
 
+# 字符串裁剪
 def pick_char(list, r, l):
     n = len(list)  # 拿到列表的长度进行循环
     for i in range(0, n):
@@ -22,53 +22,51 @@ def pick_char(list, r, l):
     return list
 
 
-def retry_if_result_none(result):
-    return result is None
-
-
+# retry修饰器对网络错误自动重试
+# 输入请求heade和物品id，生成时间价格数量的csv文件，并返回执行状态2 = 'No history'， 0 = 'success'
 @retry(exceptions=(http.client.RemoteDisconnected, urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError,
                    OpenSSL.SSL.SysCallError, ssl.SSLError, requests.exceptions.SSLError), )
 def get_item_data(headers, id):
     url = 'https://steamcommunity.com/market/listings/730/' + id
+    # 将物品ID解码为名称
     name = parse.unquote(id)
+    # 获取response
     response = requests.get(url, headers=headers)
     err = 0
+    # HTTP响应错误处理
     while response.status_code != 200:
         # time.sleep(random.randint(1, 7))
         err += 1
-        print(name + r' response.status_code = ' + str(response.status_code) + r' in ' + str(err) + r' times.')
+        print(name + r' response.status_code = ' + str(response.status_code) + r' in ' + str(
+            err) + r' times, sleeping 10s.')
         time.sleep(10)
-        # print(r'Sleeping 5s...')
-        # for i in tqdm.trange(10):
-        #     time.sleep(1)
+        # retry
         response = requests.get(url, headers=headers)
-    # print(response.text)
 
     result = re.search('<script.*?line1=(.*?);.*?</script>', response.text, re.S)
-    # with open('rst.txt', 'w') as f:
-    #   f.write(result)
-    # 匹配表格的信息，价格为美元，返回的类型为字符串
-    str1 = r'./item_data/' + name + r'.txt'
-    str2 = r'./item_data/' + name + r'.csv'
-    path: str = str1
+    # Reg匹配价量信息，返回为字符串
+    txt_path = r'./item_data/' + name + r'.txt'
+    csv_path = r'./item_data/' + name + r'.csv'
+
     # AttributeError
+    # 如果物品没有历史数据则return2
     try:
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(txt_path, 'w', encoding='utf-8') as f:
             f.write(result.group(1))
     except:
         return 2
-    file = open(path)
+    # 写入txt
+    file = open(txt_path)
     file_read = file.read()
-
-    table = str.maketrans('', '', '":+[]')  # 删除字符串中的“ ： + []
+    # 删除字符串中的“ ： + []
+    table = str.maketrans('', '', '":+[]')
     file_translate = file_read.translate(table)
-
-    lst = file_translate.split(',')  # 以逗号为分隔符，将字符串转换为列表
-
+    # 以逗号为分隔符，将字符串转换为列表
+    lst = file_translate.split(',')
+    # 将时间、价格、数量三个信息分别存入三个list
     list_time = []
     list_price = []
     list_num = []
-    # 将时间、价格、数量三个信息分别存入三个list
     i = 0
     j = 0
     while i < len(lst):
@@ -78,11 +76,8 @@ def get_item_data(headers, id):
         i = i + 3
         j = j + 1
 
-    if len(list_time) == 0:
-        return 1
-
-    # 创建csv文件，并将数据写入
-    with open(str2, 'w') as csvfile:
+    # 写入csv
+    with open(csv_path, 'w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['time', 'price', 'number'])
         for i in range(len(list_time)):
@@ -90,11 +85,11 @@ def get_item_data(headers, id):
     return 0
 
 
+# 获取单页物品列表
 def get_item_list(url, headers, list_name):
     try:
         # name = parse.unquote(name)
         response = requests.get(url, headers=headers)
-
         # 获取物品id字符串
         id_pattern = re.compile(r'0.*\?f')
         id_result = id_pattern.findall(response.text)
@@ -108,40 +103,12 @@ def get_item_list(url, headers, list_name):
         name_pattern = re.compile((r'2;">.*<'))
         name_result = name_pattern.findall(response.text)
         name_result = pick_char(name_result, 4, -1)
-
-        # result = re.search('0.*\?f', response.text, re.S)
-        # with open('rerst.txt', 'w', encoding='utf-8') as f:
-        #    f.write(str(id_result))
-        # 匹配表格的信息，价格为美元，返回的类型为字符串
-
-        # txt_path = r'./item_list/' + list_file_name + r'.txt'
-
         csv_path = r'./item_list/' + list_name + r'.csv'
-        # path: str = txt_path
-        #
-        # file = open(path)
-        # file_read = file.read()
-        #
-        # table = str.maketrans('', '', '":+[]')  # 删除字符串中的“ ： + []
-        # file_translate = file_read.translate(table)
-        #
-        # # result = file_translate.split(',')  # 以逗号为分隔符，将字符串转换为列表
-        #
+
         list_name = name_result
         list_id = id_result
 
-        # list_num = []
-        # 将id、名称、分别存入list
-        # i = 0
-        # j = 0
-        # while i < len(id_result):
-        #     list_file_name.insert(j, id_result[i])
-        #     list_id.insert(j, id_result[i + 1])
-        #     list_num.insert(j, id_result[i + 2])
-        #     i = i + 3
-        #     j = j + 1
-
-        # # 创建csv文件，并将数据写入
+        # 创建csv文件，并将数据写入
         with open(csv_path, 'a') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['id', 'name'])
@@ -153,7 +120,7 @@ def get_item_list(url, headers, list_name):
         return 0
 
 
-def get_list_data(headers, csv_path):
+def get_data_from_list(headers, csv_path):
     with open(csv_path)as f:
         f_csv = csv.reader(f)
         column = [row[0] for row in f_csv]
@@ -162,12 +129,12 @@ def get_list_data(headers, csv_path):
         get_item_data(headers, i)
 
 
+# 获取多页列表
 def get_item_list_para(url, headers, params, list_name):
     try:
-        # name = parse.unquote(name)
-        # response = requests.get(url, headers=headers)
+        # get
         response = requests.get(url, params=params, headers=headers, )
-        # 获取物品id字符串
+        # 匹配物品id
         id_pattern = re.compile(r'0.*\?f')
         id_result = id_pattern.findall(response.text)
         id_result = pick_char(id_result, 2, -2)
@@ -176,7 +143,7 @@ def get_item_list_para(url, headers, params, list_name):
             id_result = id_pattern.findall(response.text)
             id_result = pick_char(id_result, 2, -4)
 
-        # 获取物品名称
+        # 匹配物品名称
         name_pattern = re.compile((r'[0123456789ABCDEF];">.*<'))
         name_result = name_pattern.findall(response.text)
         name_result = pick_char(name_result, 4, -1)
@@ -204,6 +171,7 @@ def get_item_list_para(url, headers, params, list_name):
         return 0
 
 
+# 多页列表合成
 # csvpath = ./item_list/All_p
 def csv_merge(csvpath, headerpath, num):
     total_csv = pd.read_csv(headerpath)
@@ -214,47 +182,36 @@ def csv_merge(csvpath, headerpath, num):
     total_csv.to_csv(csvpath + r'_Done' + r'.csv', header=True, index=True)
 
 
-def mongo_save_item_data(headers, id):
-    url = 'https://steamcommunity.com/market/listings/730/' + id
-    id = parse.unquote(id)
-    response = requests.get(url, headers=headers)
-
-    # print(response.text)
-
-    result = re.search('<script.*?line1=(.*?);.*?</script>', response.text, re.S)
-    # with open('rst.txt', 'w') as f:
-    #   f.write(result)
-    # 匹配表格的信息，价格为美元，返回的类型为字符串
-    str1 = r'./item_data/' + id + r'.txt'
-    str2 = r'./item_data/' + id + r'.csv'
-    path: str = str1
-
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(result.group(1))
-
-    file = open(path)
-    file_read = file.read()
-
-    table = str.maketrans('', '', '":+[]')  # 删除字符串中的“ ： + []
-    file_translate = file_read.translate(table)
-
-    lst = file_translate.split(',')  # 以逗号为分隔符，将字符串转换为列表
-
-    list_time = []
-    list_price = []
-    list_num = []
-    # 将时间、价格、数量三个信息分别存入三个list
-    i = 0
-    j = 0
-    while i < len(lst):
-        list_time.insert(j, lst[i])
-        list_price.insert(j, lst[i + 1])
-        list_num.insert(j, lst[i + 2])
-        i = i + 3
-        j = j + 1
-    # 创建csv文件，并将数据写入
-    with open(str2, 'a') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['time', 'price', 'number'])
-        for i in range(len(list_time)):
-            writer.writerow([list_time[i], list_price[i], list_num[i]])
+def get_per_item_data():
+    err_log = pd.read_csv('./err_log.csv')
+    ord_list = list(err_log.ord)
+    times = 0
+    for item in tqdm(col_item_list.find()):
+        id = item['id']
+        ord = float(item['ordinal'])
+        # if ord < 11941:
+        #     continue
+        if ord not in ord_list:
+            continue
+        # print(a)
+        x = get_item_data(headers, id)
+        times += 1
+        # x = get_item_list_para(list_url, headers, params_list[i], name_list[i])
+        err = 0
+        # if times == random.randint(11, 20):
+        #     times = 0
+        #     print(r'Sleeping...')
+        #     time.sleep(random.randint(9, 12))
+        if x == 2:
+            print(str(ord) + parse.unquote(id) + r' has no history.')
+            with open('./no_his.csv', 'a') as f:
+                f.write(str(ord) + r',' + parse.unquote(id) + r' has no history.' + '\n')
+            continue
+        while x == 1:
+            err += 1
+            print(ord + r' Get ' + parse.unquote(id) + r' return error times ' + str(err) + r'.')
+            x = get_item_data(headers, id)
+            if x == 0:
+                err = 0
+                break
+        print(str(ord) + r' Get ' + parse.unquote(id) + r' has done.')
